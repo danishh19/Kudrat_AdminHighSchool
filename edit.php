@@ -1,46 +1,317 @@
-<?php include 'db.php';
-// edit.php — UPDATE (the "U" in CRUD)
-// Loads one student's current details into a form, then saves the changes.
-
-// $_GET is a built-in PHP array that holds values coming from the URL.
-// The list page links here as  edit.php?id=3 , so here $_GET['id'] would be 3.
-$id = $_GET['id'];
-
-// Fetch just that one student. "WHERE id=$id" limits the result to the matching row.
-$result = $conn->query("SELECT * FROM users WHERE id=$id");
-
-// fetch_assoc() reads the single row we found into $row (values read by column name).
-$row = $result->fetch_assoc();
-?>
-<h2>Edit Student</h2>
-
-<!--
-  The same kind of form as add.php, but each field is PRE-FILLED using
-  value="<?php // echo $row['...']; ?>"  so the user sees the current data
-  and can change it. <?php // echo ... ?> prints a PHP value into the HTML.
--->
-<form method="post">
-  Name: <input type="text" name="name" value="<?php echo $row['name']; ?>"><br>
-  Password: <input type="password" name="password" value="<?php echo $row['password']; ?>"><br>
-  Email: <input type="email" name="email" value="<?php echo $row['email']; ?>"><br>
-  Phone Number: <input type="text" name="phone_number" value="<?php echo $row['phone_number']; ?>"><br>
-  <input type="submit" name="update" value="Update">
-</form>
-
 <?php
-// IF the Update button was clicked (its name is "update")...
-if(isset($_POST['update'])){
-  // ...read the new values the user typed.
-  $name   = $_POST['name'];
-  $password = $_POST['password'];
-  $email  = $_POST['email'];
-  $phone_number = $_POST['phone_number'];
 
-  // UPDATE ... SET ... WHERE id=$id  changes the existing row — only the one with this id.
-  // WARNING: without the WHERE, it would overwrite EVERY student, so the WHERE matters a lot!
-  $conn->query("UPDATE users SET name='$name', password='$password', email='$email', phone_number='$phone_number' WHERE id=$id");
+session_start();
+include 'db.php';
 
-  // Redirect back to the list to see the updated student.
-  header("Location: index.php");
+// Prevent access without login
+if (!isset($_SESSION["id"])) {
+    header("Location: login.php");
+    exit();
 }
+
+// Make sure ID exists
+if (!isset($_GET['id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+$id = (int) $_GET['id'];
+
+
+// Get current student data
+$stmt = $conn->prepare(
+    "SELECT id, name, password, email, phone_number
+     FROM users
+     WHERE id = ?"
+);
+
+$stmt->bind_param("i", $id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+$row = $result->fetch_assoc();
+
+
+// If student does not exist
+if (!$row) {
+    header("Location: index.php");
+    exit();
+}
+
+
+// Update student
+if (isset($_POST['update'])) {
+
+    $name = trim($_POST['name']);
+    $password = $_POST['password'];
+    $email = trim($_POST['email']);
+    $phone_number = trim($_POST['phone_number']);
+
+
+    $stmt = $conn->prepare(
+        "UPDATE users
+         SET name = ?, password = ?, email = ?, phone_number = ?
+         WHERE id = ?"
+    );
+
+    $stmt->bind_param(
+        "ssssi",
+        $name,
+        $password,
+        $email,
+        $phone_number,
+        $id
+    );
+
+    $stmt->execute();
+
+    header("Location: index.php");
+    exit();
+}
+
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Kudrat High School | Edit Student
+    </title>
+
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+
+
+<body class="dashboard-body">
+
+
+<!-- =========================
+     NAVBAR
+========================= -->
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <img
+            src="images/Kolej-Ungku-Deramat.png"
+            alt="Kudrat High School Logo"
+            class="nav-logo"
+        >
+
+        <div class="brand-text">
+
+            <h2>
+                KUDRAT HIGH SCHOOL
+            </h2>
+
+            <p>
+                School Management System
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="user-section">
+
+        <span class="user-name">
+
+            Welcome,
+            <?php
+            echo htmlspecialchars($_SESSION["name"]);
+            ?>
+
+        </span>
+
+        <a
+            href="logout.php"
+            class="logout-btn"
+        >
+            Logout
+        </a>
+
+    </div>
+
+</header>
+
+
+
+<!-- =========================
+     EDIT FORM
+========================= -->
+
+<main class="form-page-container">
+
+
+    <div class="form-page-header">
+
+        <div>
+
+            <a
+                href="index.php"
+                class="back-link"
+            >
+                ← Back to Student List
+            </a>
+
+
+            <h1>
+                Edit Student
+            </h1>
+
+            <p>
+                Update student information below.
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="form-card">
+
+
+        <div class="form-card-header">
+
+            <h2>
+                Student Information
+            </h2>
+
+            <p>
+                Student ID:
+                #<?php echo htmlspecialchars($row['id']); ?>
+            </p>
+
+        </div>
+
+
+
+        <form method="post" class="student-form">
+
+
+            <!-- NAME -->
+
+            <div class="form-group">
+
+                <label for="name">
+                    Full Name
+                </label>
+
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value="<?php echo htmlspecialchars($row['name']); ?>"
+                    required
+                >
+
+            </div>
+
+
+
+            <!-- EMAIL -->
+
+            <div class="form-group">
+
+                <label for="email">
+                    Email Address
+                </label>
+
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="<?php echo htmlspecialchars($row['email']); ?>"
+                    required
+                >
+
+            </div>
+
+
+
+            <!-- PHONE -->
+
+            <div class="form-group">
+
+                <label for="phone_number">
+                    Phone Number
+                </label>
+
+                <input
+                    type="text"
+                    id="phone_number"
+                    name="phone_number"
+                    value="<?php echo htmlspecialchars($row['phone_number']); ?>"
+                    required
+                >
+
+            </div>
+
+
+
+            <!-- PASSWORD -->
+
+            <div class="form-group">
+
+                <label for="password">
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value="<?php echo htmlspecialchars($row['password']); ?>"
+                    required
+                >
+
+            </div>
+
+
+
+            <!-- BUTTONS -->
+
+            <div class="form-actions">
+
+                <a
+                    href="index.php"
+                    class="cancel-btn"
+                >
+                    Cancel
+                </a>
+
+
+                <button
+                    type="submit"
+                    name="update"
+                    class="update-btn"
+                >
+                    Update Student
+                </button>
+
+            </div>
+
+
+        </form>
+
+    </div>
+
+</main>
+
+
+</body>
+
+</html>
